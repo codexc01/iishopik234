@@ -1,7 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 
-let cachedModel = 'gemini-2.5-flash';
-
 const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я персональный AI-ассистент, готовый помочь с любыми задачами".';
 
 export default async function handler(req, res) {
@@ -84,31 +82,13 @@ export default async function handler(req, res) {
       temperature: 0.2
     };
 
-    const modelsToTry = [cachedModel, 'gemini-2.5-flash', 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
-    let reply = '';
-    let lastError = null;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents,
+      config
+    });
 
-    for (const model of modelsToTry) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents,
-          config
-        });
-        if (response && response.text) {
-          reply = response.text.trim();
-          cachedModel = model;
-          break;
-        }
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    if (!reply && lastError) {
-      throw lastError;
-    }
-
+    const reply = response && response.text ? response.text.trim() : '';
     return res.status(200).json({ reply });
   } catch (err) {
     console.error(err);
