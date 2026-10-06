@@ -85,7 +85,7 @@ export default async function handler(req, res) {
           const targetId = data.replace('deny_', '');
           await tgRequest('sendMessage', {
             chat_id: targetId,
-            text: '❌ Администратор отклонил ваш запрос на доступ.'
+            text: 'Доступ ограничен'
           }, token);
 
           if (cq.message && cq.message.message_id) {
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
           if (targetId) {
             await tgRequest('sendMessage', {
               chat_id: targetId,
-              text: '⛔️ Ваш доступ к AI Ассистенту был отозван администратором.'
+              text: 'Доступ ограничен'
             }, token);
 
             await tgRequest('sendMessage', {
@@ -210,7 +210,7 @@ export default async function handler(req, res) {
 
       await tgRequest('sendMessage', {
         chat_id: chatId,
-        text: `⛔️ Доступ ограничен.\n\nВаш Telegram ID: ${chatId}\n\nЗапрос на получение доступа отправлен главному администратору. Ожидайте подтверждения.`
+        text: 'Доступ ограничен'
       }, token);
 
       await tgRequest('sendMessage', {

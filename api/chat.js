@@ -56,7 +56,7 @@ export default async function handler(req, res) {
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
   if (!checkAuthorized(req, botToken)) {
-    return res.status(403).json({ error: 'Доступ ограничен. Обратитесь к администратору для получения доступа.' });
+    return res.status(403).json({ error: 'Доступ ограничен' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
