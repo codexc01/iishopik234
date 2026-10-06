@@ -19,20 +19,11 @@ function validateInitData(initData, botToken) {
     const isMatch = crypto.timingSafeEqual(Buffer.from(calculated, 'hex'), Buffer.from(hash, 'hex'));
     if (!isMatch) return null;
 
-    const authDate = parseInt(params.get('auth_date'), 10);
-    if (isNaN(authDate) || (Math.floor(Date.now() / 1000) - authDate) > 86400) {
-      return null;
-    }
-
     const userRaw = params.get('user');
     return userRaw ? JSON.parse(userRaw) : null;
   } catch {
     return null;
   }
-}
-
-function generateUserToken(uid, secret) {
-  return crypto.createHmac('sha256', secret).update(`access:${uid}`).digest('hex').slice(0, 16);
 }
 
 export default async function handler(req, res) {
@@ -43,11 +34,8 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
-    return res.status(500).json({ error: 'GEMINI_API_KEY environment variable is missing' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not set in Vercel environment variables' });
   }
-
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
-  const adminId = String(process.env.ADMIN_ID || '7965402795');
 
   try {
     let body = req.body;
@@ -72,38 +60,6 @@ export default async function handler(req, res) {
 
     if (!body || typeof body !== 'object') {
       return res.status(400).json({ error: 'Invalid Request' });
-    }
-
-    const initDataHeader = req.headers['x-telegram-init-data'] || body.initData || '';
-    const authTokenHeader = req.headers['x-auth-token'] || body.authToken || '';
-
-    const validatedUser = validateInitData(initDataHeader, botToken);
-    let isAuthorized = false;
-
-    if (validatedUser && validatedUser.id) {
-      const currentUserId = String(validatedUser.id);
-      if (currentUserId === adminId) {
-        isAuthorized = true;
-      } else {
-        const expectedToken = generateUserToken(currentUserId, botToken);
-        if (authTokenHeader && authTokenHeader === expectedToken) {
-          isAuthorized = true;
-        } else {
-          const allowedList = (process.env.ALLOWED_USERS || '').split(',').map(s => s.trim());
-          if (allowedList.includes(currentUserId)) {
-            isAuthorized = true;
-          }
-        }
-      }
-    } else if (authTokenHeader) {
-      const adminToken = generateUserToken(adminId, botToken);
-      if (authTokenHeader === adminToken) {
-        isAuthorized = true;
-      }
-    }
-
-    if (!isAuthorized) {
-      return res.status(403).json({ error: 'Access Denied. Contact admin 7965402795.' });
     }
 
     const { message, history } = body;
@@ -170,6 +126,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ reply });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }

@@ -9,7 +9,6 @@ const TRASH_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" s
 const STORAGE_CHATS_KEY = 'tg_gemini_chats_v2';
 const STORAGE_ACTIVE_ID_KEY = 'tg_gemini_active_chat_id_v2';
 const STORAGE_THEME_KEY = 'tg_gemini_theme_preference';
-const STORAGE_AUTH_TOKEN_KEY = 'tg_gemini_auth_token';
 
 const drawerBackdrop = document.getElementById('drawerBackdrop');
 const sidebarDrawer = document.getElementById('sidebarDrawer');
@@ -34,19 +33,6 @@ let chats = [];
 let activeChatId = null;
 let currentTheme = 'dark';
 let isGenerating = false;
-
-function initAuth() {
-  const params = new URLSearchParams(window.location.search);
-  const tokenFromUrl = params.get('auth');
-  if (tokenFromUrl) {
-    localStorage.setItem(STORAGE_AUTH_TOKEN_KEY, tokenFromUrl);
-  }
-}
-
-function getStoredAuthToken() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('auth') || localStorage.getItem(STORAGE_AUTH_TOKEN_KEY) || '';
-}
 
 function initTelegram() {
   if (window.Telegram && window.Telegram.WebApp) {
@@ -618,40 +604,25 @@ async function handleSendMessage(text) {
     content: m.content
   }));
 
-  const initData = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '';
-  const authToken = getStoredAuthToken();
-
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData,
-        'X-Auth-Token': authToken
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         message: query,
-        history: historyPayload,
-        initData,
-        authToken
+        history: historyPayload
       })
     });
 
-    if (res.status === 403) {
-      currentChat.messages.push({
-        role: 'assistant',
-        content: 'Доступ ограничен. Обратитесь к главному администратору (ID: 7965402795) для получения разрешения.',
-        timestamp: Date.now()
-      });
-      saveChats();
-      return;
-    }
+    const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      throw new Error();
+      const errText = data && data.error ? data.error : 'Не удалось получить ответ. Проверьте переменную GEMINI_API_KEY в панели Vercel.';
+      throw new Error(errText);
     }
 
-    const data = await res.json();
     const reply = data && typeof data.reply === 'string' ? data.reply : '';
 
     currentChat.messages.push({
@@ -665,7 +636,7 @@ async function handleSendMessage(text) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: 'Не удалось получить ответ. Проверьте переменную GEMINI_API_KEY в панели Vercel и попробуйте снова.',
+      content: err.message || 'Не удалось получить ответ. Попробуйте позже.',
       timestamp: Date.now()
     });
     saveChats();
@@ -706,40 +677,25 @@ async function regenerateResponse(assistantIndex) {
     content: m.content
   }));
 
-  const initData = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initData : '';
-  const authToken = getStoredAuthToken();
-
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData,
-        'X-Auth-Token': authToken
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         message: userQuery,
-        history: historyPayload,
-        initData,
-        authToken
+        history: historyPayload
       })
     });
 
-    if (res.status === 403) {
-      currentChat.messages.push({
-        role: 'assistant',
-        content: 'Доступ ограничен. Обратитесь к главному администратору (ID: 7965402795) для получения разрешения.',
-        timestamp: Date.now()
-      });
-      saveChats();
-      return;
-    }
+    const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      throw new Error();
+      const errText = data && data.error ? data.error : 'Не удалось повторить запрос.';
+      throw new Error(errText);
     }
 
-    const data = await res.json();
     const reply = data && typeof data.reply === 'string' ? data.reply : '';
 
     currentChat.messages.push({
@@ -752,7 +708,7 @@ async function regenerateResponse(assistantIndex) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: 'Не удалось повторить запрос. Проверьте подключение и ключ GEMINI_API_KEY.',
+      content: err.message || 'Не удалось повторить запрос. Проверьте подключение и ключ GEMINI_API_KEY.',
       timestamp: Date.now()
     });
     saveChats();
@@ -787,7 +743,6 @@ messageInput.addEventListener('keydown', (e) => {
 messageInput.addEventListener('input', autoResizeInput);
 
 const savedTheme = localStorage.getItem(STORAGE_THEME_KEY);
-initAuth();
 initTelegram();
 applyTheme(savedTheme || currentTheme);
 loadChats();
