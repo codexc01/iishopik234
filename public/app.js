@@ -4,7 +4,6 @@ const COPY_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" st
 const CHECK_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
 const RETRY_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"></path></svg>`;
 const SPARKLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>`;
-const TRASH_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
 const STORAGE_CHATS_KEY = 'tg_gemini_chats_v2';
 const STORAGE_ACTIVE_ID_KEY = 'tg_gemini_active_chat_id_v2';
@@ -248,25 +247,6 @@ function selectChat(id) {
   closeDrawer();
 }
 
-function deleteChat(id, e) {
-  if (e) {
-    e.stopPropagation();
-  }
-  triggerHaptic('impact');
-  chats = chats.filter(c => c.id !== id);
-  if (activeChatId === id) {
-    if (chats.length > 0) {
-      activeChatId = chats[0].id;
-    } else {
-      createNewChat(false);
-      return;
-    }
-  }
-  saveChats();
-  renderHistory();
-  renderActiveChat();
-}
-
 function openDrawer() {
   triggerHaptic('selection');
   renderHistory();
@@ -384,14 +364,6 @@ function renderHistory() {
       timeEl.className = 'chat-item-time';
       timeEl.textContent = formatDateItem(c.timestamp);
       itemBtn.appendChild(timeEl);
-
-      const deleteBtn = document.createElement('button');
-      deleteBtn.type = 'button';
-      deleteBtn.className = 'chat-item-delete';
-      deleteBtn.innerHTML = TRASH_SVG;
-      deleteBtn.setAttribute('aria-label', 'Удалить диалог');
-      deleteBtn.addEventListener('click', (e) => deleteChat(c.id, e));
-      itemBtn.appendChild(deleteBtn);
 
       itemsContainer.appendChild(itemBtn);
     });

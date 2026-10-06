@@ -283,32 +283,6 @@ html, body {
   margin-top: 3px;
 }
 
-.chat-item-delete {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.chat-item:hover .chat-item-delete {
-  display: flex;
-}
-
-.chat-item-delete:hover {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.12);
-}
-
 .drawer-footer {
   padding: 14px 4px 0 4px;
   border-top: 1px solid var(--border-drawer);
