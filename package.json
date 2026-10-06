@@ -1,0 +1,12 @@
+{
+  "name": "telegram-gemini-mini-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node -e \"console.log('Run with vercel dev or deploy to Vercel')\""
+  },
+  "dependencies": {
+    "@google/genai": "^2.27.0"
+  }
+}
