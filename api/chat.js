@@ -1,8 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-let cachedModel = null;
-
-const SYSTEM_PROMPT = 'Отвечай максимально кратко, ёмко и строго по делу. Без приветствий, лишних вступлений и пространных рассуждений. Ответ должен быть не длиннее 1-3 коротких предложений или кратких пунктов.';
+const SYSTEM_PROMPT = 'Отвечай максимально кратко, ёмко и строго по сути. Без приветствий, лишних вступлений и воды. Твой ответ должен состоять максимум из 1-3 коротких предложений или пары тезисов.';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -52,7 +50,7 @@ export default async function handler(req, res) {
 
     const contents = [];
     if (Array.isArray(history)) {
-      const sanitizedHistory = history.slice(-10);
+      const sanitizedHistory = history.slice(-6);
       for (const item of sanitizedHistory) {
         if (
           item &&
@@ -80,38 +78,11 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
     const config = {
       systemInstruction: SYSTEM_PROMPT,
-      maxOutputTokens: 200,
-      temperature: 0.3
+      maxOutputTokens: 180,
+      temperature: 0.2
     };
 
-    let modelsToTry = cachedModel ? [cachedModel] : [];
-
-    if (modelsToTry.length === 0) {
-      try {
-        const listRes = await ai.models.list();
-        if (listRes) {
-          const dynamicList = [];
-          for await (const m of listRes) {
-            let name = m && m.name ? m.name : '';
-            if (name.startsWith('models/')) {
-              name = name.slice(7);
-            }
-            if (name) {
-              dynamicList.push(name);
-            }
-          }
-          if (dynamicList.length > 0) {
-            const flashModels = dynamicList.filter(n => n.includes('flash'));
-            modelsToTry = flashModels.concat(dynamicList);
-          }
-        }
-      } catch (e) {}
-
-      if (modelsToTry.length === 0) {
-        modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
-      }
-    }
-
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError = null;
 
@@ -124,14 +95,10 @@ export default async function handler(req, res) {
         });
         if (response && response.text) {
           reply = response.text.trim();
-          cachedModel = model;
           break;
         }
       } catch (err) {
         lastError = err;
-        if (cachedModel === model) {
-          cachedModel = null;
-        }
       }
     }
 
