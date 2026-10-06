@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 import { isUserAllowed } from './storage.js';
 
+function makeToken(userId, botToken) {
+  const hmac = crypto.createHmac('sha256', botToken).update('grant:' + userId).digest('hex').slice(0, 32);
+  return `${userId}_${hmac}`;
+}
+
 function verifyTelegramWebAppData(initData, token) {
   if (!initData || typeof initData !== 'string') return null;
   try {
@@ -23,18 +28,6 @@ function verifyTelegramWebAppData(initData, token) {
   }
 }
 
-function verifyAccessToken(accessHeader, botToken) {
-  if (!accessHeader || typeof accessHeader !== 'string') return null;
-  const parts = accessHeader.trim().split('_');
-  if (parts.length !== 2) return null;
-  const [userId, hash] = parts;
-  const expected = crypto.createHmac('sha256', botToken).update('grant:' + userId).digest('hex').slice(0, 32);
-  if (hash === expected) {
-    return userId;
-  }
-  return null;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -46,20 +39,24 @@ export default async function handler(req, res) {
   const accessHeader = req.headers['x-access-token'];
 
   const tgUser = verifyTelegramWebAppData(initData, token);
-  const tokenUserId = verifyAccessToken(accessHeader, token);
 
   if (tgUser) {
     const ok = await isUserAllowed(tgUser.id, tgUser.username, token);
     if (ok) {
-      return res.status(200).json({ authorized: true });
+      const grantToken = makeToken(tgUser.id, token);
+      return res.status(200).json({ authorized: true, token: grantToken });
     }
     return res.status(403).json({ authorized: false, error: 'Доступ ограничен' });
   }
 
-  if (tokenUserId) {
-    const ok = await isUserAllowed(tokenUserId, null, token);
-    if (ok) {
-      return res.status(200).json({ authorized: true });
+  if (accessHeader && typeof accessHeader === 'string') {
+    const parts = accessHeader.trim().split('_');
+    if (parts.length === 2) {
+      const [userId, hash] = parts;
+      const expected = crypto.createHmac('sha256', token).update('grant:' + userId).digest('hex').slice(0, 32);
+      if (hash === expected) {
+        return res.status(200).json({ authorized: true, token: accessHeader });
+      }
     }
   }
 

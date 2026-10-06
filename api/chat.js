@@ -2,6 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 import crypto from 'crypto';
 import { isUserAllowed } from './storage.js';
 
+const ADMIN_ID = '7965402795';
+
 const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я ваш персональный умный AI-ассистент, готовый помочь с любыми задачами".';
 
 function verifyTelegramWebAppData(initData, token) {
@@ -39,18 +41,20 @@ function verifyAccessToken(accessHeader, botToken) {
 }
 
 async function checkAuthorized(req, botToken) {
-  const initData = req.headers['x-telegram-init-data'];
   const accessHeader = req.headers['x-access-token'];
-
-  const tgUser = verifyTelegramWebAppData(initData, botToken);
   const tokenUserId = verifyAccessToken(accessHeader, botToken);
-
-  if (tgUser) {
-    return isUserAllowed(tgUser.id, tgUser.username, botToken);
+  if (tokenUserId) {
+    return true;
   }
 
-  if (tokenUserId) {
-    return isUserAllowed(tokenUserId, null, botToken);
+  const initData = req.headers['x-telegram-init-data'];
+  const tgUser = verifyTelegramWebAppData(initData, botToken);
+
+  if (tgUser) {
+    if (String(tgUser.id) === ADMIN_ID) {
+      return true;
+    }
+    return isUserAllowed(tgUser.id, tgUser.username, botToken);
   }
 
   return false;
@@ -143,7 +147,7 @@ export default async function handler(req, res) {
     };
 
     let reply = '';
-    const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+    const models = ['gemini-flash-lite-latest', 'gemini-3.8-flash'];
     for (const model of models) {
       try {
         const response = await ai.models.generateContent({

@@ -57,6 +57,12 @@ async function checkAuthorization() {
     const data = await res.json().catch(() => null);
     if (!data || !data.authorized) {
       showAccessBlocked();
+      return;
+    }
+    if (data.token) {
+      try {
+        localStorage.setItem(STORAGE_ACCESS_KEY, data.token);
+      } catch (e) {}
     }
   } catch (err) {
     showAccessBlocked();
@@ -87,6 +93,7 @@ let chats = [];
 let activeChatId = null;
 let currentTheme = 'dark';
 let isGenerating = false;
+let currentAbortController = null;
 
 function initTelegram() {
   if (window.Telegram && window.Telegram.WebApp) {
@@ -186,9 +193,31 @@ function getActiveChat() {
 
 function createNewChat(focus = true) {
   triggerHaptic('impact');
+  if (currentAbortController) {
+    try {
+      currentAbortController.abort();
+    } catch (e) {}
+    currentAbortController = null;
+  }
+  isGenerating = false;
+  sendBtn.disabled = false;
+  messageInput.disabled = false;
+  messageInput.value = '';
+  autoResizeInput();
   if (typingContainer) {
     typingContainer.classList.remove('active');
   }
+
+  const current = getActiveChat();
+  if (current && current.messages.length === 0) {
+    closeDrawer();
+    renderActiveChat();
+    if (focus) {
+      setTimeout(() => messageInput.focus(), 60);
+    }
+    return;
+  }
+
   const newChat = {
     id: 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     title: 'Новый чат',
@@ -202,12 +231,21 @@ function createNewChat(focus = true) {
   renderActiveChat();
   closeDrawer();
   if (focus) {
-    messageInput.focus();
+    setTimeout(() => messageInput.focus(), 60);
   }
 }
 
 function selectChat(id) {
   triggerHaptic('selection');
+  if (currentAbortController) {
+    try {
+      currentAbortController.abort();
+    } catch (e) {}
+    currentAbortController = null;
+  }
+  isGenerating = false;
+  sendBtn.disabled = false;
+  messageInput.disabled = false;
   if (typingContainer) {
     typingContainer.classList.remove('active');
   }
@@ -591,10 +629,18 @@ async function handleSendMessage(text) {
     content: m.content
   }));
 
+  currentAbortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+  }, 14000);
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: getAuthHeaders(),
+      signal: currentAbortController.signal,
       body: JSON.stringify({
         message: query,
         history: historyPayload
@@ -622,15 +668,19 @@ async function handleSendMessage(text) {
     saveChats();
     triggerHaptic('success');
   } catch (err) {
+    const errorMsg = err.name === 'AbortError' ? 'Время ожидания ответа истекло. Попробуйте еще раз.' : (err.message || 'Не удалось получить ответ.');
     currentChat.messages.push({
       role: 'assistant',
-      content: err.message || 'Не удалось получить ответ.',
+      content: errorMsg,
       timestamp: Date.now()
     });
     saveChats();
   } finally {
+    clearTimeout(timeoutId);
+    currentAbortController = null;
     isGenerating = false;
     sendBtn.disabled = false;
+    messageInput.disabled = false;
     if (typingContainer) {
       typingContainer.classList.remove('active');
     }
@@ -672,10 +722,18 @@ async function regenerateResponse(assistantIndex) {
     content: m.content
   }));
 
+  currentAbortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
+  }, 14000);
+
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: getAuthHeaders(),
+      signal: currentAbortController.signal,
       body: JSON.stringify({
         message: userQuery,
         history: historyPayload
@@ -702,15 +760,19 @@ async function regenerateResponse(assistantIndex) {
     saveChats();
     triggerHaptic('success');
   } catch (err) {
+    const errorMsg = err.name === 'AbortError' ? 'Время ожидания ответа истекло. Попробуйте еще раз.' : (err.message || 'Не удалось повторить запрос.');
     currentChat.messages.push({
       role: 'assistant',
-      content: err.message || 'Не удалось повторить запрос.',
+      content: errorMsg,
       timestamp: Date.now()
     });
     saveChats();
   } finally {
+    clearTimeout(timeoutId);
+    currentAbortController = null;
     isGenerating = false;
     sendBtn.disabled = false;
+    messageInput.disabled = false;
     if (typingContainer) {
       typingContainer.classList.remove('active');
     }
