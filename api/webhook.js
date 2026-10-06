@@ -1,11 +1,6 @@
-import crypto from 'crypto';
+import { addAllowed, removeAllowed, getStorage } from './storage.js';
 
 const ADMIN_ID = '7965402795';
-
-function makeToken(userId, botToken) {
-  const hmac = crypto.createHmac('sha256', botToken).update('grant:' + userId).digest('hex').slice(0, 32);
-  return `${userId}_${hmac}`;
-}
 
 async function tgRequest(method, payload, botToken) {
   const slash2 = String.fromCharCode(47, 47);
@@ -55,44 +50,47 @@ export default async function handler(req, res) {
 
       if (fromId === ADMIN_ID) {
         if (data.startsWith('allow_')) {
-          const targetId = data.replace('allow_', '');
-          const targetToken = makeToken(targetId, token);
-          const targetUrl = `${appUrl}?access=${targetToken}`;
+          const rest = data.replace('allow_', '');
+          const parts = rest.split('_');
+          const targetId = parts[0];
+          const targetUser = parts[1] || '';
 
-          await tgRequest('sendMessage', {
-            chat_id: targetId,
-            text: '🎉 Администратор одобрил вам доступ к AI Ассистенту!',
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  {
-                    text: '🚀 Открыть AI Ассистент',
-                    web_app: { url: targetUrl }
-                  }
-                ]
-              ]
-            }
-          }, token);
+          if (targetId) {
+            await addAllowed(targetId, token);
+          }
+          if (targetUser) {
+            await addAllowed(targetUser, token);
+          }
+
+          if (targetId) {
+            await tgRequest('sendMessage', {
+              chat_id: targetId,
+              text: '🎉 Администратор одобрил вам доступ к AI Ассистенту!'
+            }, token);
+          }
 
           if (cq.message && cq.message.message_id) {
+            const display = targetUser ? `${targetId} (@${targetUser})` : targetId;
             await tgRequest('editMessageText', {
               chat_id: cq.message.chat.id,
               message_id: cq.message.message_id,
-              text: `✅ Доступ успешно выдан пользователю ID: ${targetId}`
+              text: `✅ Доступ успешно выдан: ${display}`
             }, token);
           }
         } else if (data.startsWith('deny_')) {
-          const targetId = data.replace('deny_', '');
-          await tgRequest('sendMessage', {
-            chat_id: targetId,
-            text: 'Доступ ограничен'
-          }, token);
+          const targetId = data.replace('deny_', '').split('_')[0];
+          if (targetId) {
+            await tgRequest('sendMessage', {
+              chat_id: targetId,
+              text: 'Доступ ограничен'
+            }, token);
+          }
 
           if (cq.message && cq.message.message_id) {
             await tgRequest('editMessageText', {
               chat_id: cq.message.chat.id,
               message_id: cq.message.message_id,
-              text: `❌ Запрос пользователя ID: ${targetId} отклонен.`
+              text: `❌ Запрос пользователя ${targetId} отклонен.`
             }, token);
           }
         }
@@ -123,55 +121,25 @@ export default async function handler(req, res) {
       if (chatId === ADMIN_ID) {
         if (text.startsWith('/allow')) {
           const parts = text.split(/\s+/);
-          const targetId = parts[1];
-          if (targetId) {
-            const targetToken = makeToken(targetId, token);
-            const targetUrl = `${appUrl}?access=${targetToken}`;
-
-            await tgRequest('sendMessage', {
-              chat_id: targetId,
-              text: '🎉 Администратор предоставил вам доступ к AI Ассистенту!',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: '🚀 Открыть AI Ассистент',
-                      web_app: { url: targetUrl }
-                    }
-                  ]
-                ]
-              }
-            }, token);
-
+          const target = (parts[1] || '').trim();
+          if (target) {
+            await addAllowed(target, token);
+            const isNumeric = /^\d+$/.test(target);
+            if (isNumeric) {
+              await tgRequest('sendMessage', {
+                chat_id: target,
+                text: '🎉 Администратор предоставил вам доступ к AI Ассистенту!'
+              }, token);
+            }
             await tgRequest('sendMessage', {
               chat_id: chatId,
-              text: `✅ Доступ успешно выдан пользователю ID: ${targetId}`
+              text: `✅ Доступ успешно выдан: ${target}`
             }, token);
             return res.status(200).json({ ok: true });
           } else {
             await tgRequest('sendMessage', {
               chat_id: chatId,
-              text: 'Используйте: /allow <ID_пользователя>'
-            }, token);
-            return res.status(200).json({ ok: true });
-          }
-        }
-
-        if (text.startsWith('/token')) {
-          const parts = text.split(/\s+/);
-          const targetId = parts[1];
-          if (targetId) {
-            const targetToken = makeToken(targetId, token);
-            const targetUrl = `${appUrl}?access=${targetToken}`;
-            await tgRequest('sendMessage', {
-              chat_id: chatId,
-              text: `🔗 Персональная ссылка доступа для ID ${targetId}:\n${targetUrl}`
-            }, token);
-            return res.status(200).json({ ok: true });
-          } else {
-            await tgRequest('sendMessage', {
-              chat_id: chatId,
-              text: 'Используйте: /token <ID_пользователя>'
+              text: 'Используйте: /allow <ID или @username>'
             }, token);
             return res.status(200).json({ ok: true });
           }
@@ -179,43 +147,43 @@ export default async function handler(req, res) {
 
         if (text.startsWith('/revoke')) {
           const parts = text.split(/\s+/);
-          const targetId = parts[1];
-          if (targetId) {
-            await tgRequest('sendMessage', {
-              chat_id: targetId,
-              text: 'Доступ ограничен'
-            }, token);
-
+          const target = (parts[1] || '').trim();
+          if (target) {
+            await removeAllowed(target, token);
+            const isNumeric = /^\d+$/.test(target);
+            if (isNumeric) {
+              await tgRequest('sendMessage', {
+                chat_id: target,
+                text: 'Доступ ограничен'
+              }, token);
+            }
             await tgRequest('sendMessage', {
               chat_id: chatId,
-              text: `🚫 Доступ пользователя ID: ${targetId} отозван.`
+              text: `🚫 Доступ отозван: ${target}`
             }, token);
             return res.status(200).json({ ok: true });
           } else {
             await tgRequest('sendMessage', {
               chat_id: chatId,
-              text: 'Используйте: /revoke <ID_пользователя>'
+              text: 'Используйте: /revoke <ID или @username>'
             }, token);
             return res.status(200).json({ ok: true });
           }
         }
 
-        const adminToken = makeToken(ADMIN_ID, token);
-        const adminUrl = `${appUrl}?access=${adminToken}`;
+        if (text === '/users' || text === '/list') {
+          const storage = await getStorage(token);
+          const list = storage.allowed.map(x => `• ${x}`).join('\n') || 'Список пуст';
+          await tgRequest('sendMessage', {
+            chat_id: chatId,
+            text: `👥 Разрешенные пользователи:\n\n${list}`
+          }, token);
+          return res.status(200).json({ ok: true });
+        }
 
         await tgRequest('sendMessage', {
           chat_id: chatId,
-          text: `👑 Панель Главного Администратора\n\nВаш ID: ${ADMIN_ID}\n\nУправление доступом:\n• /allow <ID> — выдать доступ\n• /token <ID> — ссылка с доступом\n• /revoke <ID> — отозвать доступ\n\nЗапросы от новых пользователей будут приходить сюда с кнопками быстрого одобрения.`,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: '🚀 Открыть AI Ассистент',
-                  web_app: { url: adminUrl }
-                }
-              ]
-            ]
-          }
+          text: `👑 Панель Главного Администратора\n\nВаш ID: ${ADMIN_ID}\n\nУправление доступом:\n• /allow <ID или @username> — выдать доступ\n• /revoke <ID или @username> — отозвать доступ\n• /users — список допущенных пользователей\n\nЗапросы от новых пользователей будут приходить сюда с кнопками быстрого одобрения.`
         }, token);
         return res.status(200).json({ ok: true });
       }
@@ -225,6 +193,9 @@ export default async function handler(req, res) {
         text: 'Доступ ограничен'
       }, token);
 
+      const callbackDataAllow = 'allow_' + chatId + (user.username ? ('_' + user.username) : '');
+      const callbackDataDeny = 'deny_' + chatId;
+
       await tgRequest('sendMessage', {
         chat_id: ADMIN_ID,
         text: `🔔 Запрос на доступ к AI Ассистенту!\n\n👤 Пользователь: ${userName} (${userHandle})\n🆔 Telegram ID: ${chatId}`,
@@ -233,11 +204,11 @@ export default async function handler(req, res) {
             [
               {
                 text: '✅ Одобрить доступ',
-                callback_data: `allow_${chatId}`
+                callback_data: callbackDataAllow
               },
               {
                 text: '❌ Отклонить',
-                callback_data: `deny_${chatId}`
+                callback_data: callbackDataDeny
               }
             ]
           ]

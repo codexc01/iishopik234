@@ -1,6 +1,5 @@
 import crypto from 'crypto';
-
-const ADMIN_ID = '7965402795';
+import { isUserAllowed } from './storage.js';
 
 function verifyTelegramWebAppData(initData, token) {
   if (!initData || typeof initData !== 'string') return null;
@@ -18,8 +17,7 @@ function verifyTelegramWebAppData(initData, token) {
     if (calculated !== hash) return null;
     const userRaw = params.get('user');
     if (!userRaw) return null;
-    const user = JSON.parse(userRaw);
-    return user.id ? String(user.id) : null;
+    return JSON.parse(userRaw);
   } catch (e) {
     return null;
   }
@@ -47,21 +45,22 @@ export default async function handler(req, res) {
   const initData = req.headers['x-telegram-init-data'];
   const accessHeader = req.headers['x-access-token'];
 
-  const tgUserId = verifyTelegramWebAppData(initData, token);
+  const tgUser = verifyTelegramWebAppData(initData, token);
   const tokenUserId = verifyAccessToken(accessHeader, token);
 
-  if (tgUserId) {
-    if (tgUserId === ADMIN_ID) {
-      return res.status(200).json({ authorized: true });
-    }
-    if (tokenUserId && tokenUserId === tgUserId) {
+  if (tgUser) {
+    const ok = await isUserAllowed(tgUser.id, tgUser.username, token);
+    if (ok) {
       return res.status(200).json({ authorized: true });
     }
     return res.status(403).json({ authorized: false, error: 'Доступ ограничен' });
   }
 
   if (tokenUserId) {
-    return res.status(200).json({ authorized: true });
+    const ok = await isUserAllowed(tokenUserId, null, token);
+    if (ok) {
+      return res.status(200).json({ authorized: true });
+    }
   }
 
   return res.status(403).json({ authorized: false, error: 'Доступ ограничен' });

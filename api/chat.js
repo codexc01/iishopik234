@@ -1,7 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import crypto from 'crypto';
-
-const ADMIN_ID = '7965402795';
+import { isUserAllowed } from './storage.js';
 
 const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я ваш персональный умный AI-ассистент, готовый помочь с любыми задачами".';
 
@@ -21,8 +20,7 @@ function verifyTelegramWebAppData(initData, token) {
     if (calculated !== hash) return null;
     const userRaw = params.get('user');
     if (!userRaw) return null;
-    const user = JSON.parse(userRaw);
-    return user.id ? String(user.id) : null;
+    return JSON.parse(userRaw);
   } catch (e) {
     return null;
   }
@@ -40,25 +38,19 @@ function verifyAccessToken(accessHeader, botToken) {
   return null;
 }
 
-function checkAuthorized(req, botToken) {
+async function checkAuthorized(req, botToken) {
   const initData = req.headers['x-telegram-init-data'];
   const accessHeader = req.headers['x-access-token'];
 
-  const tgUserId = verifyTelegramWebAppData(initData, botToken);
+  const tgUser = verifyTelegramWebAppData(initData, botToken);
   const tokenUserId = verifyAccessToken(accessHeader, botToken);
 
-  if (tgUserId) {
-    if (tgUserId === ADMIN_ID) {
-      return true;
-    }
-    if (tokenUserId && tokenUserId === tgUserId) {
-      return true;
-    }
-    return false;
+  if (tgUser) {
+    return isUserAllowed(tgUser.id, tgUser.username, botToken);
   }
 
   if (tokenUserId) {
-    return true;
+    return isUserAllowed(tokenUserId, null, botToken);
   }
 
   return false;
@@ -71,7 +63,8 @@ export default async function handler(req, res) {
   }
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
-  if (!checkAuthorized(req, botToken)) {
+  const authorized = await checkAuthorized(req, botToken);
+  if (!authorized) {
     return res.status(403).json({ error: 'Доступ ограничен' });
   }
 
