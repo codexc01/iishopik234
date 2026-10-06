@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я персональный AI-ассистент, готовый помочь с любыми задачами".';
+const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я ваш персональный умный AI-ассистент, готовый помочь с любыми задачами".';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -79,16 +79,29 @@ export default async function handler(req, res) {
     const config = {
       systemInstruction: SYSTEM_PROMPT,
       maxOutputTokens: 120,
-      temperature: 0.2
+      temperature: 0.1
     };
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents,
-      config
-    });
+    let reply = '';
+    const models = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
+    for (const model of models) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config
+        });
+        if (response && response.text) {
+          reply = response.text.trim();
+          break;
+        }
+      } catch (err) {
+        if (model === models[models.length - 1]) {
+          throw err;
+        }
+      }
+    }
 
-    const reply = response && response.text ? response.text.trim() : '';
     return res.status(200).json({ reply });
   } catch (err) {
     console.error(err);
