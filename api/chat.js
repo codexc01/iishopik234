@@ -1,5 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 
+let cachedModel = null;
+
+const SYSTEM_PROMPT = 'Отвечай максимально кратко, ёмко и строго по делу. Без приветствий, лишних вступлений и пространных рассуждений. Ответ должен быть не длиннее 1-3 коротких предложений или кратких пунктов.';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -48,7 +52,7 @@ export default async function handler(req, res) {
 
     const contents = [];
     if (Array.isArray(history)) {
-      const sanitizedHistory = history.slice(-20);
+      const sanitizedHistory = history.slice(-10);
       for (const item of sanitizedHistory) {
         if (
           item &&
@@ -74,50 +78,60 @@ export default async function handler(req, res) {
     });
 
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-    
-    let candidateModels = [
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-2.0-flash-exp',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro'
-    ];
+    const config = {
+      systemInstruction: SYSTEM_PROMPT,
+      maxOutputTokens: 200,
+      temperature: 0.3
+    };
 
-    try {
-      const listRes = await ai.models.list();
-      if (listRes) {
-        const dynamicList = [];
-        for await (const m of listRes) {
-          let name = m && m.name ? m.name : '';
-          if (name.startsWith('models/')) {
-            name = name.slice(7);
+    let modelsToTry = cachedModel ? [cachedModel] : [];
+
+    if (modelsToTry.length === 0) {
+      try {
+        const listRes = await ai.models.list();
+        if (listRes) {
+          const dynamicList = [];
+          for await (const m of listRes) {
+            let name = m && m.name ? m.name : '';
+            if (name.startsWith('models/')) {
+              name = name.slice(7);
+            }
+            if (name) {
+              dynamicList.push(name);
+            }
           }
-          if (name) {
-            dynamicList.push(name);
+          if (dynamicList.length > 0) {
+            const flashModels = dynamicList.filter(n => n.includes('flash'));
+            modelsToTry = flashModels.concat(dynamicList);
           }
         }
-        if (dynamicList.length > 0) {
-          const flashModels = dynamicList.filter(n => n.includes('flash'));
-          candidateModels = flashModels.concat(dynamicList);
-        }
+      } catch (e) {}
+
+      if (modelsToTry.length === 0) {
+        modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
       }
-    } catch (e) {}
+    }
 
     let reply = '';
     let lastError = null;
 
-    for (const model of candidateModels) {
+    for (const model of modelsToTry) {
       try {
         const response = await ai.models.generateContent({
           model,
-          contents
+          contents,
+          config
         });
         if (response && response.text) {
-          reply = response.text;
+          reply = response.text.trim();
+          cachedModel = model;
           break;
         }
       } catch (err) {
         lastError = err;
+        if (cachedModel === model) {
+          cachedModel = null;
+        }
       }
     }
 

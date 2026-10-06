@@ -25,6 +25,7 @@ const drawerHistory = document.getElementById('drawerHistory');
 const chatMessages = document.getElementById('chatMessages');
 const chatViewport = document.getElementById('chatViewport');
 const chatDateBadge = document.getElementById('chatDateBadge');
+const typingContainer = document.getElementById('typingContainer');
 const chatForm = document.getElementById('chatForm');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -215,6 +216,9 @@ function getActiveChat() {
 
 function createNewChat(focus = true) {
   triggerHaptic('impact');
+  if (typingContainer) {
+    typingContainer.classList.remove('active');
+  }
   const newChat = {
     id: 'chat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     title: 'Новый чат',
@@ -234,6 +238,9 @@ function createNewChat(focus = true) {
 
 function selectChat(id) {
   triggerHaptic('selection');
+  if (typingContainer) {
+    typingContainer.classList.remove('active');
+  }
   activeChatId = id;
   saveChats();
   renderHistory();
@@ -491,6 +498,9 @@ function fallbackCopy(text) {
 
 function renderActiveChat() {
   chatMessages.textContent = '';
+  if (typingContainer) {
+    typingContainer.classList.remove('active');
+  }
   const currentChat = getActiveChat();
 
   if (!currentChat || currentChat.messages.length === 0) {
@@ -597,6 +607,10 @@ async function handleSendMessage(text) {
   autoResizeInput();
   isGenerating = true;
   sendBtn.disabled = true;
+
+  if (typingContainer) {
+    typingContainer.classList.add('active');
+  }
   scrollToBottom();
 
   const historyPayload = currentChat.messages.slice(0, -1).map(m => ({
@@ -619,7 +633,7 @@ async function handleSendMessage(text) {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
-      const errText = data && data.error ? data.error : 'Не удалось получить ответ. Проверьте переменную GEMINI_API_KEY в панели Vercel.';
+      const errText = data && data.error ? data.error : 'Не удалось получить ответ.';
       throw new Error(errText);
     }
 
@@ -636,13 +650,16 @@ async function handleSendMessage(text) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: err.message || 'Не удалось получить ответ. Попробуйте позже.',
+      content: err.message || 'Не удалось получить ответ.',
       timestamp: Date.now()
     });
     saveChats();
   } finally {
     isGenerating = false;
     sendBtn.disabled = false;
+    if (typingContainer) {
+      typingContainer.classList.remove('active');
+    }
     renderActiveChat();
     renderHistory();
   }
@@ -670,6 +687,10 @@ async function regenerateResponse(assistantIndex) {
 
   isGenerating = true;
   sendBtn.disabled = true;
+
+  if (typingContainer) {
+    typingContainer.classList.add('active');
+  }
   scrollToBottom();
 
   const historyPayload = currentChat.messages.slice(0, assistantIndex).map(m => ({
@@ -708,13 +729,16 @@ async function regenerateResponse(assistantIndex) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: err.message || 'Не удалось повторить запрос. Проверьте подключение и ключ GEMINI_API_KEY.',
+      content: err.message || 'Не удалось повторить запрос.',
       timestamp: Date.now()
     });
     saveChats();
   } finally {
     isGenerating = false;
     sendBtn.disabled = false;
+    if (typingContainer) {
+      typingContainer.classList.remove('active');
+    }
     renderActiveChat();
     renderHistory();
   }

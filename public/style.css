@@ -619,6 +619,59 @@ html, body {
   color: var(--status-online);
 }
 
+.typing-container {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-top: 4px;
+  animation: messageSlideIn 0.2s var(--bezier);
+}
+
+.typing-container.active {
+  display: flex;
+}
+
+.typing-bubble {
+  background-color: var(--bg-assistant-bubble);
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  padding: 12px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes typingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.65);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
 .chat-footer {
   flex-shrink: 0;
   padding: 8px 16px max(14px, env(safe-area-inset-bottom)) 16px;
