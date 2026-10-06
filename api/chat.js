@@ -1,30 +1,4 @@
-import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
-
-function validateInitData(initData, botToken) {
-  if (!initData || typeof initData !== 'string') return null;
-  try {
-    const params = new URLSearchParams(initData);
-    const hash = params.get('hash');
-    if (!hash) return null;
-    params.delete('hash');
-
-    const keys = Array.from(params.keys()).sort();
-    const checkString = keys.map(k => `${k}=${params.get(k)}`).join('\n');
-
-    const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-    const calculated = crypto.createHmac('sha256', secret).update(checkString).digest('hex');
-
-    if (calculated.length !== hash.length) return null;
-    const isMatch = crypto.timingSafeEqual(Buffer.from(calculated, 'hex'), Buffer.from(hash, 'hex'));
-    if (!isMatch) return null;
-
-    const userRaw = params.get('user');
-    return userRaw ? JSON.parse(userRaw) : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -100,11 +74,39 @@ export default async function handler(req, res) {
     });
 
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    
+    let candidateModels = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-exp',
+      'gemini-1.5-flash',
+      'gemini-1.5-pro'
+    ];
+
+    try {
+      const listRes = await ai.models.list();
+      if (listRes) {
+        const dynamicList = [];
+        for await (const m of listRes) {
+          let name = m && m.name ? m.name : '';
+          if (name.startsWith('models/')) {
+            name = name.slice(7);
+          }
+          if (name) {
+            dynamicList.push(name);
+          }
+        }
+        if (dynamicList.length > 0) {
+          const flashModels = dynamicList.filter(n => n.includes('flash'));
+          candidateModels = flashModels.concat(dynamicList);
+        }
+      }
+    } catch (e) {}
+
     let reply = '';
     let lastError = null;
 
-    for (const model of modelsToTry) {
+    for (const model of candidateModels) {
       try {
         const response = await ai.models.generateContent({
           model,
