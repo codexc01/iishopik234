@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 
-const SYSTEM_PROMPT = 'Отвечай максимально кратко, ёмко и строго по сути. Без приветствий, лишних вступлений и воды. Твой ответ должен состоять максимум из 1-3 коротких предложений или пары тезисов.';
+let cachedModel = 'gemini-2.5-flash';
+
+const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я персональный AI-ассистент, готовый помочь с любыми задачами".';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
 
     const contents = [];
     if (Array.isArray(history)) {
-      const sanitizedHistory = history.slice(-6);
+      const sanitizedHistory = history.slice(-4);
       for (const item of sanitizedHistory) {
         if (
           item &&
@@ -78,11 +80,11 @@ export default async function handler(req, res) {
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
     const config = {
       systemInstruction: SYSTEM_PROMPT,
-      maxOutputTokens: 180,
+      maxOutputTokens: 120,
       temperature: 0.2
     };
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'];
+    const modelsToTry = [cachedModel, 'gemini-2.5-flash', 'gemini-2.0-flash'].filter((v, i, a) => a.indexOf(v) === i);
     let reply = '';
     let lastError = null;
 
@@ -95,6 +97,7 @@ export default async function handler(req, res) {
         });
         if (response && response.text) {
           reply = response.text.trim();
+          cachedModel = model;
           break;
         }
       } catch (err) {
