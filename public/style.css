@@ -269,12 +269,49 @@ html, body {
   flex: 1;
 }
 
+.chat-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .chat-item-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background-color: var(--dot-active);
   flex-shrink: 0;
+}
+
+.chat-item-delete {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin: -4px 0 -4px 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.45;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.chat-item:hover .chat-item-delete,
+.chat-item.active .chat-item-delete {
+  opacity: 0.85;
+}
+
+.chat-item-delete:hover {
+  opacity: 1;
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.12);
+}
+
+.chat-item-delete:active {
+  transform: scale(0.9);
 }
 
 .chat-item-time {

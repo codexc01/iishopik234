@@ -108,6 +108,18 @@ export default async function handler(req, res) {
       const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Пользователь';
       const userHandle = user.username ? `@${user.username}` : 'без юзернейма';
 
+      if (text.startsWith('/start')) {
+        await tgRequest('setChatMenuButton', {
+          chat_id: chatId,
+          menu_button: {
+            type: 'web_app',
+            text: 'AI Ассистент',
+            web_app: { url: appUrl }
+          }
+        }, token);
+        return res.status(200).json({ ok: true });
+      }
+
       if (chatId === ADMIN_ID) {
         if (text.startsWith('/allow')) {
           const parts = text.split(/\s+/);
