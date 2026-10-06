@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY environment variable is missing' });
   }
 
   try {
@@ -16,6 +16,17 @@ export default async function handler(req, res) {
     if (typeof body === 'string') {
       try {
         body = JSON.parse(body);
+      } catch {
+        return res.status(400).json({ error: 'Invalid Request' });
+      }
+    } else if (!body) {
+      try {
+        const chunks = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const raw = Buffer.concat(chunks).toString();
+        body = JSON.parse(raw);
       } catch {
         return res.status(400).json({ error: 'Invalid Request' });
       }
@@ -62,15 +73,33 @@ export default async function handler(req, res) {
       parts: [{ text: trimmed }]
     });
 
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents
-    });
+    const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    let reply = '';
+    let lastError = null;
 
-    const reply = response && response.text ? response.text : '';
+    for (const model of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents
+        });
+        if (response && response.text) {
+          reply = response.text;
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (!reply && lastError) {
+      throw lastError;
+    }
+
     return res.status(200).json({ reply });
-  } catch {
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }

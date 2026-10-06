@@ -25,7 +25,6 @@ const drawerHistory = document.getElementById('drawerHistory');
 const chatMessages = document.getElementById('chatMessages');
 const chatViewport = document.getElementById('chatViewport');
 const chatDateBadge = document.getElementById('chatDateBadge');
-const typingIndicator = document.getElementById('typingIndicator');
 const chatForm = document.getElementById('chatForm');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -598,7 +597,6 @@ async function handleSendMessage(text) {
   autoResizeInput();
   isGenerating = true;
   sendBtn.disabled = true;
-  typingIndicator.removeAttribute('hidden');
   scrollToBottom();
 
   const historyPayload = currentChat.messages.slice(0, -1).map(m => ({
@@ -636,14 +634,13 @@ async function handleSendMessage(text) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: 'Не удалось получить ответ. Пожалуйста, попробуйте снова позже.',
+      content: 'Не удалось получить ответ. Проверьте переменную GEMINI_API_KEY в панели Vercel и попробуйте снова.',
       timestamp: Date.now()
     });
     saveChats();
   } finally {
     isGenerating = false;
     sendBtn.disabled = false;
-    typingIndicator.setAttribute('hidden', '');
     renderActiveChat();
     renderHistory();
   }
@@ -671,7 +668,6 @@ async function regenerateResponse(assistantIndex) {
 
   isGenerating = true;
   sendBtn.disabled = true;
-  typingIndicator.removeAttribute('hidden');
   scrollToBottom();
 
   const historyPayload = currentChat.messages.slice(0, assistantIndex).map(m => ({
@@ -708,14 +704,13 @@ async function regenerateResponse(assistantIndex) {
   } catch (err) {
     currentChat.messages.push({
       role: 'assistant',
-      content: 'Не удалось повторить запрос. Пожалуйста, проверьте подключение.',
+      content: 'Не удалось повторить запрос. Проверьте подключение и ключ GEMINI_API_KEY.',
       timestamp: Date.now()
     });
     saveChats();
   } finally {
     isGenerating = false;
     sendBtn.disabled = false;
-    typingIndicator.setAttribute('hidden', '');
     renderActiveChat();
     renderHistory();
   }
