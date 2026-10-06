@@ -6,8 +6,8 @@ const RETRY_SVG = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" s
 const SPARKLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>`;
 const TRASH_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
 
-const STORAGE_CHATS_KEY = 'tg_gemini_chats_v2';
-const STORAGE_ACTIVE_ID_KEY = 'tg_gemini_active_chat_id_v2';
+const STORAGE_CHATS_KEY = 'tg_chat_history_v3';
+const STORAGE_ACTIVE_ID_KEY = 'tg_chat_active_v3';
 const STORAGE_THEME_KEY = 'tg_gemini_theme_preference';
 const STORAGE_ACCESS_KEY = 'tg_access_token';
 
@@ -146,105 +146,22 @@ function toggleTheme() {
   applyTheme(next);
 }
 
-function getInitialMockData() {
-  const now = Date.now();
-  const dayMs = 86400000;
-  return [
-    {
-      id: 'demo-1',
-      title: 'Спокойный вечер',
-      timestamp: now,
-      messages: [
-        {
-          role: 'user',
-          content: 'Как провести спокойный вечер и отвлечься от работы?',
-          timestamp: now - 60000
-        },
-        {
-          role: 'assistant',
-          content: 'Попробуй вечер без спешки. Вот простой план на час:\n\n• **Смени обстановку.** Прогуляйся 15 минут без телефона.\n• **Добавь уюта.** Приготовь чай и включи спокойную музыку.\n• **Освободи голову.** Запиши мысли и оставь задачи до завтра.\n\nНе нужно делать всё. Начни с того, что сейчас приятно именно тебе.',
-          timestamp: now
-        }
-      ]
-    },
-    {
-      id: 'demo-2',
-      title: 'Идеи для быстрого ужина',
-      timestamp: now - 3600000 * 6,
-      messages: [
-        {
-          role: 'user',
-          content: 'Идеи для быстрого ужина',
-          timestamp: now - 3600000 * 6
-        }
-      ]
-    },
-    {
-      id: 'demo-3',
-      title: 'Что почитать на выходных',
-      timestamp: now - dayMs,
-      messages: [
-        {
-          role: 'user',
-          content: 'Что почитать на выходных',
-          timestamp: now - dayMs
-        }
-      ]
-    },
-    {
-      id: 'demo-4',
-      title: 'План поездки в Петербург',
-      timestamp: now - dayMs - 3600000 * 5,
-      messages: [
-        {
-          role: 'user',
-          content: 'План поездки в Петербург',
-          timestamp: now - dayMs - 3600000 * 5
-        }
-      ]
-    },
-    {
-      id: 'demo-5',
-      title: 'Как выстроить привычку',
-      timestamp: now - dayMs * 3,
-      messages: [
-        {
-          role: 'user',
-          content: 'Как выстроить привычку',
-          timestamp: now - dayMs * 3
-        }
-      ]
-    },
-    {
-      id: 'demo-6',
-      title: 'Подарок для друга',
-      timestamp: now - dayMs * 4,
-      messages: [
-        {
-          role: 'user',
-          content: 'Подарок для друга',
-          timestamp: now - dayMs * 4
-        }
-      ]
-    }
-  ];
-}
-
 function loadChats() {
   const saved = localStorage.getItem(STORAGE_CHATS_KEY);
   if (saved) {
     try {
       chats = JSON.parse(saved);
       if (!Array.isArray(chats)) {
-        chats = getInitialMockData();
+        chats = [];
       }
     } catch (e) {
-      chats = getInitialMockData();
+      chats = [];
     }
   } else {
-    chats = getInitialMockData();
-    saveChats();
+    chats = [];
   }
+
+  chats = chats.filter(c => c && typeof c === 'object' && !String(c.id).startsWith('demo-'));
 
   const savedActiveId = localStorage.getItem(STORAGE_ACTIVE_ID_KEY);
   if (savedActiveId && chats.some(c => c.id === savedActiveId)) {
