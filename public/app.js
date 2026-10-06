@@ -31,6 +31,37 @@ function getAuthHeaders() {
   };
 }
 
+const accessBlockedOverlay = document.getElementById('accessBlockedOverlay');
+
+function showAccessBlocked() {
+  if (accessBlockedOverlay) {
+    accessBlockedOverlay.classList.add('active');
+  }
+  const appLayout = document.querySelector('.app-layout');
+  if (appLayout) {
+    appLayout.style.display = 'none';
+  }
+}
+
+async function checkAuthorization() {
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      showAccessBlocked();
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    if (!data || !data.authorized) {
+      showAccessBlocked();
+    }
+  } catch (err) {
+    showAccessBlocked();
+  }
+}
+
 const drawerBackdrop = document.getElementById('drawerBackdrop');
 const sidebarDrawer = document.getElementById('sidebarDrawer');
 const openDrawerBtn = document.getElementById('openDrawerBtn');
@@ -625,6 +656,9 @@ async function handleSendMessage(text) {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
+      if (res.status === 403) {
+        showAccessBlocked();
+      }
       const errText = data && data.error ? data.error : 'Не удалось получить ответ.';
       throw new Error(errText);
     }
@@ -703,6 +737,9 @@ async function regenerateResponse(assistantIndex) {
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
+      if (res.status === 403) {
+        showAccessBlocked();
+      }
       const errText = data && data.error ? data.error : 'Не удалось повторить запрос.';
       throw new Error(errText);
     }
@@ -762,3 +799,4 @@ applyTheme(savedTheme || currentTheme);
 loadChats();
 renderHistory();
 renderActiveChat();
+checkAuthorization();

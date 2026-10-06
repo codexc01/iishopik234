@@ -5,44 +5,60 @@ const ADMIN_ID = '7965402795';
 
 const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я ваш персональный умный AI-ассистент, готовый помочь с любыми задачами".';
 
+function verifyTelegramWebAppData(initData, token) {
+  if (!initData || typeof initData !== 'string') return null;
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+    params.delete('hash');
+    const sorted = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+    const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
+    const calculated = crypto.createHmac('sha256', secret).update(sorted).digest('hex');
+    if (calculated !== hash) return null;
+    const userRaw = params.get('user');
+    if (!userRaw) return null;
+    const user = JSON.parse(userRaw);
+    return user.id ? String(user.id) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function verifyAccessToken(accessHeader, botToken) {
+  if (!accessHeader || typeof accessHeader !== 'string') return null;
+  const parts = accessHeader.trim().split('_');
+  if (parts.length !== 2) return null;
+  const [userId, hash] = parts;
+  const expected = crypto.createHmac('sha256', botToken).update('grant:' + userId).digest('hex').slice(0, 32);
+  if (hash === expected) {
+    return userId;
+  }
+  return null;
+}
+
 function checkAuthorized(req, botToken) {
-  const token = botToken || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  const initData = req.headers['x-telegram-init-data'];
   const accessHeader = req.headers['x-access-token'];
-  if (accessHeader && typeof accessHeader === 'string') {
-    const parts = accessHeader.trim().split('_');
-    if (parts.length === 2) {
-      const [userId, hash] = parts;
-      const expected = crypto.createHmac('sha256', token).update('grant:' + userId).digest('hex').slice(0, 32);
-      if (hash === expected) {
-        return true;
-      }
+
+  const tgUserId = verifyTelegramWebAppData(initData, botToken);
+  const tokenUserId = verifyAccessToken(accessHeader, botToken);
+
+  if (tgUserId) {
+    if (tgUserId === ADMIN_ID) {
+      return true;
     }
+    if (tokenUserId && tokenUserId === tgUserId) {
+      return true;
+    }
+    return false;
   }
 
-  const initData = req.headers['x-telegram-init-data'];
-  if (initData && typeof initData === 'string') {
-    try {
-      const params = new URLSearchParams(initData);
-      const hash = params.get('hash');
-      if (hash) {
-        params.delete('hash');
-        const sorted = Array.from(params.entries())
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => `${k}=${v}`)
-          .join('\n');
-        const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
-        const calculated = crypto.createHmac('sha256', secret).update(sorted).digest('hex');
-        if (calculated === hash) {
-          const userRaw = params.get('user');
-          if (userRaw) {
-            const userObj = JSON.parse(userRaw);
-            if (String(userObj.id) === ADMIN_ID) {
-              return true;
-            }
-          }
-        }
-      }
-    } catch {}
+  if (tokenUserId) {
+    return true;
   }
 
   return false;
