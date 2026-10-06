@@ -8,6 +8,28 @@ const SPARKLE_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
 const STORAGE_CHATS_KEY = 'tg_gemini_chats_v2';
 const STORAGE_ACTIVE_ID_KEY = 'tg_gemini_active_chat_id_v2';
 const STORAGE_THEME_KEY = 'tg_gemini_theme_preference';
+const STORAGE_ACCESS_KEY = 'tg_access_token';
+
+const urlParams = new URLSearchParams(window.location.search);
+const accessParam = urlParams.get('access') || urlParams.get('tgWebAppStartParam');
+if (accessParam) {
+  try {
+    localStorage.setItem(STORAGE_ACCESS_KEY, accessParam);
+  } catch {}
+}
+
+function getAuthHeaders() {
+  const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || '';
+  let token = '';
+  try {
+    token = localStorage.getItem(STORAGE_ACCESS_KEY) || '';
+  } catch {}
+  return {
+    'Content-Type': 'application/json',
+    'x-telegram-init-data': initData,
+    'x-access-token': token
+  };
+}
 
 const drawerBackdrop = document.getElementById('drawerBackdrop');
 const sidebarDrawer = document.getElementById('sidebarDrawer');
@@ -593,9 +615,7 @@ async function handleSendMessage(text) {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         message: query,
         history: historyPayload
@@ -673,9 +693,7 @@ async function regenerateResponse(assistantIndex) {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         message: userQuery,
         history: historyPayload

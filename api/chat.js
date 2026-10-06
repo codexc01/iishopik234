@@ -1,11 +1,62 @@
 import { GoogleGenAI } from '@google/genai';
+import crypto from 'crypto';
+
+const ADMIN_ID = '7965402795';
 
 const SYSTEM_PROMPT = 'Ты — персональный умный AI-ассистент. Отвечай молниеносно, предельно кратко, емко и строго по сути заданного вопроса: максимум 1-2 коротких предложения или пара четких тезисов. Категорически запрещено здороваться, делать вступления, растягивать мысль или лить воду. Строжайший запрет: никогда не называй себя Gemini, Google, Bard или другими именами корпораций и кодовыми названиями моделей. Если спрашивают, кто ты или какая ты языковая модель — отвечай кратко: "Я ваш персональный умный AI-ассистент, готовый помочь с любыми задачами".';
+
+function checkAuthorized(req, botToken) {
+  const token = botToken || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  const accessHeader = req.headers['x-access-token'];
+  if (accessHeader && typeof accessHeader === 'string') {
+    const parts = accessHeader.trim().split('_');
+    if (parts.length === 2) {
+      const [userId, hash] = parts;
+      const expected = crypto.createHmac('sha256', token).update('grant:' + userId).digest('hex').slice(0, 32);
+      if (hash === expected) {
+        return true;
+      }
+    }
+  }
+
+  const initData = req.headers['x-telegram-init-data'];
+  if (initData && typeof initData === 'string') {
+    try {
+      const params = new URLSearchParams(initData);
+      const hash = params.get('hash');
+      if (hash) {
+        params.delete('hash');
+        const sorted = Array.from(params.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}=${v}`)
+          .join('\n');
+        const secret = crypto.createHmac('sha256', 'WebAppData').update(token).digest();
+        const calculated = crypto.createHmac('sha256', secret).update(sorted).digest('hex');
+        if (calculated === hash) {
+          const userRaw = params.get('user');
+          if (userRaw) {
+            const userObj = JSON.parse(userRaw);
+            if (String(userObj.id) === ADMIN_ID) {
+              return true;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return false;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  if (!checkAuthorized(req, botToken)) {
+    return res.status(403).json({ error: 'Доступ ограничен. Обратитесь к администратору для получения доступа.' });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
