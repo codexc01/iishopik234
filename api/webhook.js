@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   const slash2 = String.fromCharCode(47, 47);
-  const token = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  const token = process.env.TELEGRAM_BOT_TOKEN || '';
   const appUrl = process.env.APP_URL || ('https:' + slash2 + 'iishopik234.vercel.app');
 
   try {

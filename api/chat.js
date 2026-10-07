@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  const botToken = process.env.TELEGRAM_BOT_TOKEN || '';
   const authorized = await checkAuthorized(req, botToken);
   if (!authorized) {
     return res.status(403).json({ error: 'Доступ ограничен' });

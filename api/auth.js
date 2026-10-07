@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const token = process.env.TELEGRAM_BOT_TOKEN || '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+  const token = process.env.TELEGRAM_BOT_TOKEN || '';
   const initData = req.headers['x-telegram-init-data'];
   const accessHeader = req.headers['x-access-token'];
 

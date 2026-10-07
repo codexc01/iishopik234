@@ -1,5 +1,5 @@
 const ADMIN_ID = '7965402795';
-const BOT_TOKEN = '8574883810:AAHNExqjTWtnQP8lWrFT2Vvxh4e9WrSETTc';
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 
 let memoryCache = null;
 let memoryCacheTime = 0;
